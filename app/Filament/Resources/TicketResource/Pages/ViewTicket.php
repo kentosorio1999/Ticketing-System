@@ -22,7 +22,7 @@ class ViewTicket extends ViewRecord
     {
         return [
             ActivityLogTimelineSimpleAction::make('timeline')
-                ->label(__('Histórico'))
+                ->label(__('History'))
                 ->withRelations(['comments'])
                 ->modifyProperties(function (array $properties) {
                     $newProperties = array_map(fn () => [], array_flip(array_keys($properties)));

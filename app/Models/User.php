@@ -5,17 +5,18 @@ namespace App\Models;
 use Althinect\FilamentSpatieRolesPermissions\Concerns\HasSuperAdmin;
 use DutchCodingCompany\FilamentSocialite\Models\SocialiteUser;
 use Filament\Models\Contracts\FilamentUser;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\HasAvatar;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, HasLocalePreference, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasLocalePreference, HasAvatar
 {
     use HasFactory;
     use HasRoles;
@@ -48,6 +49,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         'remember_token',
         'identity',
         'phone',
+        'avatar_url',
         'user_level_id',
         'is_active',
     ];
@@ -62,6 +64,13 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             ->dontSubmitEmptyLogs();
     }
 
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return $this->avatar_url
+            ? Storage::disk('public')->url($this->avatar_url)
+            : null;
+    }
+
     /**
      * Get the user's preferred locale.
      */
@@ -72,8 +81,6 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     /**
      * Get the unit that owns the User.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function unit()
     {
@@ -82,8 +89,6 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     /**
      * Get all of the comments for the User.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function comments()
     {
@@ -92,8 +97,6 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     /**
      * Get all of the tickets for the User.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function tickets()
     {
@@ -101,9 +104,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
     }
 
     /**
-     * Get all of the ticekt responsibility for the User.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * Get all of the ticket responsibility for the User.
      */
     public function ticektResponsibility()
     {
@@ -113,29 +114,27 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
     /**
      * Determine who has access.
      *
-     * Only active users can access the filament
+     * Only active users can access the filament.
      */
     public function canAccessPanel(\Filament\Panel $panel): bool
     {
-        return auth()->user()->is_active;
+        return $this->is_active;
     }
 
     /**
      * Add scope to display users based on their role.
-     *
-     * If the role is as an admin unit, then display the user based on their unit ID.
      */
     public function scopeByRole($query)
     {
-        if (auth()->user()->hasRole('Admin Unit')) {
+        if (auth()->user()?->hasRole('Admin Unit')) {
             return $query->where('users.unit_id', auth()->user()->unit_id);
         }
+
+        return $query;
     }
 
     /**
-     * Get all of the socialiteUsers for the User
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * Get all of the socialiteUsers for the User.
      */
     public function socialiteUsers()
     {

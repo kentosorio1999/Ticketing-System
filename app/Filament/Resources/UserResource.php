@@ -38,37 +38,53 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\FileUpload::make('avatar_url')
+                    ->label(__('Avatar'))
+                    ->image()
+                    ->avatar()
+                    ->imageEditor()
+                    ->disk('public')
+                    ->directory('avatars')
+                    ->visibility('public'),
+
                 Forms\Components\Select::make('unit_id')
                     ->label(__('Unit'))
-                    ->options(Unit::all()->pluck('name', 'id'))
+                    ->options(Unit::query()->pluck('name', 'id'))
                     ->searchable(),
+
                 Forms\Components\TextInput::make('name')
                     ->translateLabel()
                     ->required()
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('email')
                     ->translateLabel()
                     ->email()
                     ->required()
                     ->maxLength(255),
+
                 Forms\Components\DateTimePicker::make('email_verified_at')
                     ->translateLabel()
                     ->native(false)
                     ->displayFormat(app(GeneralSettings::class)->datetime_format),
+
                 Forms\Components\TextInput::make('password')
                     ->translateLabel()
                     ->password()
-                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                    ->dehydrateStateUsing(fn ($state) => filled($state) ? Hash::make($state) : null)
                     ->dehydrated(fn ($state) => filled($state))
                     ->required(fn (string $context): bool => $context === 'create')
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('identity')
                     ->translateLabel()
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('phone')
                     ->translateLabel()
                     ->tel()
                     ->maxLength(255),
+
                 Forms\Components\Toggle::make('is_active')
                     ->translateLabel()
                     ->required(),
@@ -79,12 +95,22 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('avatar_url')
+                    ->label(__('Avatar'))
+                    ->disk('public')
+                    ->circular(),
+
                 Tables\Columns\TextColumn::make('name')
-                    ->translateLabel(),
+                    ->translateLabel()
+                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('email')
-                    ->translateLabel(),
+                    ->translateLabel()
+                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('roles.name')
                     ->translateLabel(),
+
                 Tables\Columns\IconColumn::make('is_active')
                     ->translateLabel()
                     ->boolean(),

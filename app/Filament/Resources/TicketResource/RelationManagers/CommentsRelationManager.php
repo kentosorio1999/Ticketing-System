@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\TicketResource\RelationManagers;
 
+use App\Filament\Resources\TicketResource;
 use App\Models\TicketStatus;
 use App\Settings\GeneralSettings;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Form;
+use Filament\Notifications\Actions\Action as NotificationAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Columns\Layout\Split;
@@ -61,7 +64,7 @@ class CommentsRelationManager extends RelationManager
 
                     Forms\Components\FileUpload::make('attachments')
                         ->translateLabel()
-                        ->directory('comment-attachments/'.date('m-y'))
+                        ->directory('comment-attachments/' . date('m-y'))
                         ->maxSize(2000)
                         ->downloadable(),
                 ]),
@@ -79,11 +82,13 @@ class CommentsRelationManager extends RelationManager
                             ->translateLabel()
                             ->weight('bold')
                             ->grow(false),
+
                         TextColumn::make('created_at')
                             ->translateLabel()
                             ->dateTime(app(GeneralSettings::class)->datetime_format)
                             ->color('secondary'),
                     ]),
+
                     TextColumn::make('comment')
                         ->wrap()
                         ->html(),
@@ -105,19 +110,50 @@ class CommentsRelationManager extends RelationManager
                     })
                     ->before(function (array $data, Livewire $livewire) {
                         $ticket = $livewire->ownerRecord;
+
                         if (array_key_exists('ticket_statuses_id', $data) && ! empty($data['ticket_statuses_id'])) {
-                            $ticket->update(['ticket_statuses_id' => $data['ticket_statuses_id']]);
+                            $ticket->update([
+                                'ticket_statuses_id' => $data['ticket_statuses_id'],
+                            ]);
                         }
                     })
                     ->after(function (array $data, Livewire $livewire) {
+                        $ticket = $livewire->ownerRecord->fresh(['owner', 'ticketStatus']);
+
                         $livewire->dispatch('refreshTicketFormView');
+
+                        if (! $ticket || ! $ticket->owner) {
+                            return;
+                        }
+
+                        // Do not notify the owner if the owner is the one who commented.
+                        if ($ticket->owner_id === auth()->id()) {
+                            return;
+                        }
+
+                        $commentPreview = str(strip_tags($data['comment'] ?? ''))
+                            ->limit(100)
+                            ->toString();
+
+                        Notification::make()
+                            ->title('New Ticket Comment')
+                            ->body('A new comment was added to your ticket: ' . $commentPreview)
+                            ->info()
+                            ->actions([
+                                NotificationAction::make('view_ticket')
+                                    ->label('View Ticket')
+                                    ->button()
+                                    ->url(TicketResource::getUrl('view', ['record' => $ticket]))
+                                    ->markAsRead(),
+                            ])
+                            ->sendToDatabase($ticket->owner);
                     }),
             ])
             ->actions([
                 Tables\Actions\Action::make('attachment')
                     ->translateLabel()
                     ->action(function ($record) {
-                        return response()->download('storage/'.$record->attachments);
+                        return response()->download('storage/' . $record->attachments);
                     })
                     ->hidden(fn ($record) => $record->attachments == ''),
 

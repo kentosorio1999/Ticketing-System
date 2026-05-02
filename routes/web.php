@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Auth\SocialiteController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -15,10 +15,12 @@ use Laravel\Socialite\Facades\Socialite;
 |
 */
 
-Route::get('/', function () {
-    return redirect()->route('filament.admin.pages.dashboard');
-});
+Route::get('/admin/leave-impersonation', function (Request $request) {
+    if (app()->bound('impersonate') && app('impersonate')->isImpersonating()) {
+        app('impersonate')->leave();
+    }
 
-// socialite login
-Route::get('/auth/{provider}', [SocialiteController::class, 'redirectToProvider']);
-Route::get('/auth/{provider}/callback', [SocialiteController::class, 'handleProvideCallback']);
+    $request->session()->regenerateToken();
+
+    return redirect('/admin');
+})->middleware(['web', 'auth'])->name('admin.leave-impersonation');
