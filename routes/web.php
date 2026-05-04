@@ -3,18 +3,26 @@
 use App\Http\Controllers\Auth\SocialiteController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Laravel\Socialite\Facades\Socialite;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
 */
 
+// When opening http://127.0.0.1:8000, go to Filament login
+Route::get('/', function () {
+    return redirect('/admin/login');
+});
+
+// Socialite login routes
+Route::get('/auth/{provider}', [SocialiteController::class, 'redirectToProvider'])
+    ->name('socialite.redirect');
+
+Route::get('/auth/{provider}/callback', [SocialiteController::class, 'handleProvideCallback'])
+    ->name('socialite.callback');
+
+// Leave impersonation
 Route::get('/admin/leave-impersonation', function (Request $request) {
     if (app()->bound('impersonate') && app('impersonate')->isImpersonating()) {
         app('impersonate')->leave();
@@ -22,5 +30,5 @@ Route::get('/admin/leave-impersonation', function (Request $request) {
 
     $request->session()->regenerateToken();
 
-    return redirect('/admin');
-})->middleware(['web', 'auth'])->name('admin.leave-impersonation');
+    return redirect('/admin?left_impersonation=1');
+})->name('admin.leave-impersonation');

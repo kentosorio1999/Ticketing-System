@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SocialiteUser;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialiteController extends Controller
@@ -18,53 +19,43 @@ class SocialiteController extends Controller
     public function handleProvideCallback($provider)
     {
         try {
-            $user = Socialite::driver($provider)->user();
+            $socialUser = Socialite::driver($provider)->user();
         } catch (\Exception $e) {
-            return redirect()->back();
+            return redirect('/admin/login')->with('error', 'Login failed. Please try again.');
         }
-        // find or create user and send params user get from socialite and provider
-        $authUser = $this->findOrCreateUser($user, $provider);
 
-        // login user
-        Auth()->login($authUser, true);
+        $authUser = $this->findOrCreateUser($socialUser, $provider);
 
-        // setelah login redirect ke dashboard
+        Auth::login($authUser, true);
+
         return redirect()->route('filament.admin.pages.dashboard');
     }
 
     public function findOrCreateUser($socialUser, $provider)
     {
-        // Get Social Account
-        $socialAccount = SocialiteUser::where('provider_id', $socialUser->id)
+        $socialAccount = SocialiteUser::where('provider_id', $socialUser->getId())
             ->where('provider', $provider)
             ->first();
 
-        // If it already exists.
         if ($socialAccount) {
-            // return user
             return $socialAccount->user;
-            // If there isn't yet.
         }
 
         $user = User::where('email', $socialUser->getEmail())->first();
 
-        // If there are no users.
         if (! $user) {
-            // Create a new user
             $user = User::create([
                 'name' => $socialUser->getName(),
                 'email' => $socialUser->getEmail(),
-                'email_verified_at' => Carbon::now()->timestamp,
+                'email_verified_at' => Carbon::now(),
             ]);
         }
 
-        // Buat a new socialite user
         $user->socialiteUsers()->create([
             'provider_id' => $socialUser->getId(),
             'provider' => $provider,
         ]);
 
-        // return user
         return $user;
     }
 }

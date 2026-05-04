@@ -7,11 +7,13 @@ use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 
 class MonthlyTicketTrendChart extends ApexChartWidget
 {
+
+     
     protected static ?string $chartId = 'monthlyTicketTrendChart';
 
     protected static ?string $heading = 'Monthly Ticket Trend';
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 4;
 
     protected int | string | array $columnSpan = 1;
 

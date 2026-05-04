@@ -11,12 +11,9 @@ use App\Models\TicketStatus;
 use App\Models\Unit;
 use App\Models\User;
 use App\Settings\GeneralSettings;
-use App\Settings\TicketSettings;
 use Filament\Forms;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Support\Colors\Color;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,160 +25,175 @@ class TicketResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
 
-    protected static ?int $navigationSort = 3;
+    public static function getNavigationGroup(): ?string
+    {
+        return __('Ticket Management');
+    }
 
     public static function getModelLabel(): string
     {
         return __('Ticket');
     }
 
-    public static function getNavigationItems(): array
+    public static function getPluralModelLabel(): string
     {
-        $navigationsItems = parent::getNavigationItems();
-        $navigationsItems[0]->isActiveWhen(function () {
-            return request()->routeIs(static::getRouteBaseName().'.*')
-                && ! collect(request()->query())->dot()->get('tableFilters.only_my_tickets.isActive');
-        });
+        return __('Tickets');
+    }
 
-        return $navigationsItems;
+    /**
+     * Pending users cannot see ticket navigation, ticket pages, or create tickets.
+     */
+    protected static function userCanAccessTickets(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        // Admin roles can always access tickets.
+        if ($user->hasAnyRole([
+            'Super Admin',
+            'super_admin',
+            'Admin',
+            'admin',
+            'Admin Unit',
+            'Staff Unit',
+        ])) {
+            return true;
+        }
+
+        // Normal users can access tickets only after Super Admin approval.
+        return (bool) $user->is_active;
+    }
+
+    /**
+     * Hide Tickets menu for pending users.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::userCanAccessTickets();
+    }
+
+    /**
+     * Block pending users from opening ticket list directly.
+     */
+    public static function canViewAny(): bool
+    {
+        return static::userCanAccessTickets();
+    }
+
+    /**
+     * Block pending users from creating tickets directly.
+     */
+    public static function canCreate(): bool
+    {
+        return static::userCanAccessTickets();
+    }
+
+    /**
+     * Extra protection for the whole resource.
+     */
+    public static function canAccess(): bool
+    {
+        return static::userCanAccessTickets();
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Section::make()->schema([
-                    Forms\Components\Select::make('unit_id')
-                        ->label(__('Work Unit'))
-                        ->options(Unit::where(function ($query) {
-                            $user = auth()->user();
+                Forms\Components\Section::make('Ticket Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('title')
+                            ->label('Title')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
 
-                            if ($user->hasAnyRole(['Super Admin'])) {
-                                return;
-                            }
+                        Forms\Components\RichEditor::make('description')
+                            ->label('Description')
+                            ->required()
+                            ->columnSpanFull(),
 
-                            if ($user->unit_id) {
-                                $query->whereId($user->unit_id);
-                            }
-                        })->get()->pluck('name', 'id'))
-                        ->default(auth()->user()->unit_id)
-                        ->searchable()
-                        ->required()
-                        ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                            $unit = Unit::find($state);
-                            if ($unit) {
-                                $categoryId = (int) $get('category_id');
-                                if ($categoryId && $category = Category::find($categoryId)) {
-                                    if ($category->unit_id !== $unit->id) {
-                                        $set('category_id', null);
-                                    }
+                        Forms\Components\Select::make('unit_id')
+                            ->label('Unit')
+                            ->options(Unit::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+
+                        Forms\Components\Select::make('category_id')
+                            ->label('Category')
+                            ->options(Category::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+
+                        Forms\Components\Select::make('priority_id')
+                            ->label('Priority')
+                            ->options(Priority::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+
+                        Forms\Components\Select::make('ticket_statuses_id')
+                            ->label('Status')
+                            ->options(function () {
+                                $user = auth()->user();
+
+                                if ($user?->hasRole('Staff Unit')) {
+                                    return TicketStatus::query()
+                                        ->whereIn('name', [
+                                            'In Progress',
+                                            'Pending',
+                                            'Resolved',
+                                        ])
+                                        ->orderBy('name')
+                                        ->pluck('name', 'id');
                                 }
-                            }
-                        })
-                        ->reactive(),
 
-                    Forms\Components\Select::make('category_id')
-                        ->label(__('Category'))
-                        ->options(function (callable $get, callable $set) {
-                            return Category::where(function ($query) use ($get) {
-                                $query->whereNull('unit_id');
-                                if ($get('unit_id')) {
-                                    $query->orWhere('unit_id', $get('unit_id'));
-                                }
-                            })->get()->pluck('name', 'id');
-                            $unit = Unit::find($get('unit_id'));
-                            if ($unit) {
-                                return $unit->categories->pluck('name', 'id');
-                            }
+                                return TicketStatus::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                                'Super Admin',
+                                'Admin Unit',
+                                'Staff Unit',
+                            ]) ?? false),
 
-                            return Category::all()->pluck('name', 'id');
-                        })
-                        ->searchable()
-                        ->required(),
+                        Forms\Components\Select::make('responsible_id')
+                            ->label('Assigned Staff')
+                            ->options(
+                                fn () => User::role('Staff Unit')
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Unassigned')
+                            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                                'Super Admin',
+                                'Admin Unit',
+                            ]) ?? false),
 
-                    Forms\Components\TextInput::make('title')
-                        ->label(__('Title'))
-                        ->required()
-                        ->maxLength(255)
-                        ->columnSpan([
-                            'sm' => 2,
-                        ]),
-
-                    Forms\Components\RichEditor::make('description')
-                        ->label(__('Description'))
-                        ->required()
-                        ->maxLength(65535)
-                        ->columnSpan([
-                            'sm' => 2,
-                        ]),
-                ])->columns([
-                    'sm' => 2,
-                ])->columnSpan(2),
-
-                Section::make()->schema([
-                    Forms\Components\Select::make('priority_id')
-                        ->label(__('Priority'))
-                        ->options(Priority::all()->pluck('name', 'id'))
-                        ->default(app(TicketSettings::class)->default_priority)
-                        ->searchable()
-                        ->required(),
-
-                    Forms\Components\Select::make('ticket_statuses_id')
-                        ->label(__('Status'))
-                        ->options(TicketStatus::all()->pluck('name', 'id'))
-                        ->searchable()
-                        ->required()
-                        ->hiddenOn('create')
-                        ->hidden(
-                            fn () => ! auth()
-                                ->user()
-                                ->hasAnyRole(['Super Admin', 'Admin Unit', 'Staff Unit']),
-                        ),
-
-                    Forms\Components\Placeholder::make('status')
-                        ->label(__('Status'))
-                        ->hiddenOn(['create', 'edit'])
-                        ->content(fn (
-                            ?Ticket $record,
-                        ): string => $record ? $record->ticketStatus->name : '-')
-                        ->hidden(
-                            fn () => auth()
-                                ->user()
-                                ->hasAnyRole(['Super Admin', 'Admin Unit', 'Staff Unit']),
-                        ),
-
-                    Forms\Components\Select::make('responsible_id')
-                        ->label(__('Responsible'))
-                        ->options(User::ByRole()
-                            ->pluck('name', 'id'))
-                        ->searchable()
-                        ->required()
-                        ->hiddenOn('create')
-                        ->hidden(
-                            fn () => ! auth()
-                                ->user()
-                                ->hasAnyRole(['Super Admin', 'Admin Unit']),
-                        ),
-
-                    Forms\Components\Placeholder::make('owner_id')
-                        ->label(__('Owner'))
-                        ->content(fn (
-                            ?Ticket $record,
-                        ): string => $record ? $record->owner->name : '-'),
-
-                    Forms\Components\Placeholder::make('created_at')
-                        ->translateLabel()
-                        ->content(fn (
-                            ?Ticket $record,
-                        ): string => $record ? $record->created_at->diffForHumans() : '-'),
-
-                    Forms\Components\Placeholder::make('updated_at')
-                        ->translateLabel()
-                        ->content(fn (
-                            ?Ticket $record,
-                        ): string => $record ? $record->updated_at->diffForHumans() : '-'),
-                ])->columnSpan(1),
-            ])->columns(3);
+                        Forms\Components\Select::make('owner_id')
+                            ->label('Owner')
+                            ->options(User::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->default(fn () => auth()->id())
+                            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                                'Super Admin',
+                                'Admin Unit',
+                            ]) ?? false),
+                    ])
+                    ->columns(2),
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -189,86 +201,174 @@ class TicketResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('title')
-                    ->translateLabel()
+                    ->label('Ticket')
                     ->limit(50)
-                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
-                        $state = $column->getState();
+                    ->searchable()
+                    ->weight('bold'),
 
-                        if (strlen($state) <= $column->getCharacterLimit()) {
-                            return null;
-                        }
-
-                        // Only render the tooltip if the column content exceeds the length limit.
-                        return $state;
-                    })
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime(app(GeneralSettings::class)->datetime_format)
-                    ->translateLabel()
-                    ->sortable()
-                    ->toggleable(),
                 Tables\Columns\TextColumn::make('owner.name')
+                    ->label('Owner')
                     ->searchable()
-                    ->label(__('Owner'))
                     ->toggleable(),
+
+                Tables\Columns\TextColumn::make('unit.name')
+                    ->label('Unit')
+                    ->searchable()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('category.name')
+                    ->label('Category')
                     ->searchable()
-                    ->label(__('Category'))
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('ticketStatus.name')
-                    ->label(__('Status'))
-                    ->sortable()
+
+                Tables\Columns\TextColumn::make('priority.name')
+                    ->label('Priority')
                     ->badge()
-                    ->color(function (Ticket $ticket) {
-                        return $ticket->ticketStatus->color ? Color::hex($ticket->ticketStatus->color) : 'gray';
-                    }),
+                    ->color(fn (?string $state): string => match ($state) {
+                        'Low' => 'gray',
+                        'Normal' => 'info',
+                        'Medium' => 'warning',
+                        'High' => 'danger',
+                        'Urgent' => 'danger',
+                        default => 'gray',
+                    })
+                    ->searchable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('ticketStatus.name')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'New' => 'info',
+                        'Open' => 'success',
+                        'In Progress' => 'warning',
+                        'Pending' => 'gray',
+                        'Resolved' => 'primary',
+                        'Closed' => 'gray',
+                        default => 'gray',
+                    })
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('responsible.name')
+                    ->label('Assigned To')
+                    ->placeholder('Unassigned')
+                    ->searchable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime(app(GeneralSettings::class)->datetime_format)
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
 
                 Tables\Filters\Filter::make('only_my_tickets')
-                    ->translateLabel()
+                    ->label('Only My Tickets')
                     ->toggle()
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->where('owner_id', auth()->user()->id);
+                    ->query(function (Builder $query): Builder {
+                        return $query->where('owner_id', auth()->id());
                     }),
 
-                Tables\Filters\SelectFilter::make('owner')
-                    ->translateLabel()
-                    ->visible(auth()->user()->roles->isNotEmpty())
-                    ->relationship('owner', 'name'),
+                Tables\Filters\Filter::make('my_assigned_tickets')
+                    ->label('My Assigned Tickets')
+                    ->toggle()
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Staff Unit') ?? false)
+                    ->query(function (Builder $query): Builder {
+                        return $query->where('responsible_id', auth()->id());
+                    }),
 
-                Tables\Filters\SelectFilter::make('status')
-                    ->translateLabel()
-                    ->relationship('ticketStatus', 'name'),
+                Tables\Filters\Filter::make('unassigned_tickets')
+                    ->label('Unassigned Tickets')
+                    ->toggle()
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                        'Super Admin',
+                        'Admin Unit',
+                    ]) ?? false)
+                    ->query(function (Builder $query): Builder {
+                        return $query->whereNull('responsible_id');
+                    }),
+
+                Tables\Filters\Filter::make('urgent_tickets')
+                    ->label('Urgent Tickets')
+                    ->toggle()
+                    ->query(function (Builder $query): Builder {
+                        return $query->whereHas('priority', function (Builder $query) {
+                            $query->where('name', 'Urgent');
+                        });
+                    }),
+
+                Tables\Filters\SelectFilter::make('owner_id')
+                    ->label('Owner')
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                        'Super Admin',
+                        'Admin Unit',
+                    ]) ?? false)
+                    ->relationship('owner', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('unit_id')
+                    ->label('Unit')
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Super Admin') ?? false)
+                    ->relationship('unit', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('category_id')
+                    ->label('Category')
+                    ->relationship('category', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('priority_id')
+                    ->label('Priority')
+                    ->relationship('priority', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('ticket_statuses_id')
+                    ->label('Status')
+                    ->relationship('ticketStatus', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('responsible_id')
+                    ->label('Assigned Staff')
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                        'Super Admin',
+                        'Admin Unit',
+                    ]) ?? false)
+                    ->relationship('responsible', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('')
-                    ->size('lg')
-                    ->tooltip(__('filament-actions::view.single.label')),
+                Tables\Actions\ViewAction::make(),
 
                 Tables\Actions\EditAction::make()
-                    ->label('')
-                    ->size('lg')
-                    ->tooltip(__('filament-actions::edit.single.label')),
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                        'Super Admin',
+                        'Admin Unit',
+                        'Staff Unit',
+                    ]) ?? false),
 
                 Tables\Actions\DeleteAction::make()
-                    ->label('')
-                    ->size('lg')
-                    ->tooltip(__('filament-actions::delete.single.label')),
-
-                Tables\Actions\RestoreAction::make()
-                    ->label('')
-                    ->size('lg')
-                    ->tooltip(__('filament-actions::restore.single.label')),
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Super Admin') ?? false),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
-                Tables\Actions\ForceDeleteBulkAction::make(),
-                Tables\Actions\RestoreBulkAction::make(),
+                Tables\Actions\DeleteBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Super Admin') ?? false),
+
+                Tables\Actions\ForceDeleteBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Super Admin') ?? false),
+
+                Tables\Actions\RestoreBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->hasRole('Super Admin') ?? false),
             ])
-            ->defaultSort('updated_at', 'desc');
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
@@ -288,31 +388,43 @@ class TicketResource extends Resource
         ];
     }
 
-    /**
-     * Display tickets based on each role.
-     *
-     * If it is a Super Admin/Global Viewer, then display all tickets.
-     * If it is a Admin Unit/Unit Viewer, then display tickets based on the tickets they have created and their unit id.
-     * If it is a Staff Unit, then display tickets based on the tickets they have created and the tickets assigned to them.
-     * If it is a Regular User, then display tickets based on the tickets they have created.
-     */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where(function ($query) {
-            $user = auth()->user();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
+            ->with([
+                'owner',
+                'unit',
+                'category',
+                'priority',
+                'ticketStatus',
+                'responsible',
+            ]);
 
-            if ($user->hasAnyRole(['Super Admin', 'Global Viewer'])) {
-                return;
-            }
+        $user = auth()->user();
 
-            if ($user->hasAnyRole(['Admin Unit', 'Unit Viewer'])) {
-                $query->where('tickets.unit_id', $user->unit_id)->orWhere('tickets.owner_id', $user->id);
-            } elseif ($user->hasRole('Staff Unit')) {
-                $query->where('tickets.responsible_id', $user->id)->orWhere('tickets.owner_id', $user->id);
-            } else {
-                $query->where('tickets.owner_id', $user->id);
-            }
-        })
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (! static::userCanAccessTickets()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->hasAnyRole(['Super Admin', 'super_admin', 'Admin', 'admin'])) {
+            return $query;
+        }
+
+        if ($user->hasRole('Admin Unit')) {
+            return $query->where('unit_id', $user->unit_id);
+        }
+
+        if ($user->hasRole('Staff Unit')) {
+            return $query->where('responsible_id', $user->id);
+        }
+
+        return $query->where('owner_id', $user->id);
     }
 }

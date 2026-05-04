@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Settings\GeneralSettings;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -24,6 +25,8 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
+    protected static ?int $navigationSort = 2;
+
     public static function getNavigationGroup(): ?string
     {
         return __('Administration');
@@ -32,6 +35,11 @@ class UserResource extends Resource
     public static function getModelLabel(): string
     {
         return __('User');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Users');
     }
 
     public static function form(Form $form): Form
@@ -49,8 +57,9 @@ class UserResource extends Resource
 
                 Forms\Components\Select::make('unit_id')
                     ->label(__('Unit'))
-                    ->options(Unit::query()->pluck('name', 'id'))
-                    ->searchable(),
+                    ->options(Unit::query()->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload(),
 
                 Forms\Components\TextInput::make('name')
                     ->translateLabel()
@@ -86,7 +95,8 @@ class UserResource extends Resource
                     ->maxLength(255),
 
                 Forms\Components\Toggle::make('is_active')
-                    ->translateLabel()
+                    ->label('Approved / Active')
+                    ->helperText('Turn on if this account is approved and allowed to access the system.')
                     ->required(),
             ]);
     }
@@ -101,34 +111,110 @@ class UserResource extends Resource
                     ->circular(),
 
                 Tables\Columns\TextColumn::make('name')
-                    ->translateLabel()
-                    ->searchable(),
+                    ->label('Name')
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('email')
-                    ->translateLabel()
+                    ->label('Email')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('unit.name')
+                    ->label('Unit')
+                    ->placeholder('No unit')
+                    ->sortable()
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('roles.name')
-                    ->translateLabel(),
+                    ->label('Role')
+                    ->badge(),
 
-                Tables\Columns\IconColumn::make('is_active')
-                    ->translateLabel()
-                    ->boolean(),
+                Tables\Columns\TextColumn::make('is_active')
+                    ->label('Account Status')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Approved' : 'Pending Approval')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'warning'),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
+
+                Tables\Filters\SelectFilter::make('unit_id')
+                    ->label('Unit')
+                    ->relationship('unit', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                Tables\Filters\SelectFilter::make('roles')
+                    ->label('Role')
+                    ->relationship('roles', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
             ->actions([
+                Tables\Actions\Action::make('deactivate')
+                    ->label('Deactivate')
+                    ->icon('heroicon-m-x-circle')
+                    ->color('danger')
+                    ->visible(fn (User $record): bool => self::canManageAccount($record) && $record->id !== auth()->id())
+                    ->requiresConfirmation()
+                    ->modalHeading('Deactivate account')
+                    ->modalDescription('This will remove the user from the active Users list and move the account back to Pending Accounts.')
+                    ->action(function (User $record): void {
+                        $record->update([
+                            'is_active' => false,
+                        ]);
+
+                        Notification::make()
+                            ->title('Account Deactivated')
+                            ->body('Your account has been deactivated. Please contact the administrator.')
+                            ->danger()
+                            ->sendToDatabase($record);
+
+                        Notification::make()
+                            ->title('Account Deactivated')
+                            ->body($record->name . ' has been moved to Pending Accounts.')
+                            ->danger()
+                            ->send();
+                    }),
+
                 Impersonate::make()
+                    ->visible(fn (User $record): bool => $record->is_active)
                     ->redirectTo(route('filament.admin.pages.dashboard')),
+
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
-                Tables\Actions\ForceDeleteBulkAction::make(),
-                Tables\Actions\RestoreBulkAction::make(),
-            ]);
+                Tables\Actions\DeleteBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->isSuperAdmin() ?? false),
+
+                Tables\Actions\ForceDeleteBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->isSuperAdmin() ?? false),
+
+                Tables\Actions\RestoreBulkAction::make()
+                    ->visible(fn (): bool => auth()->user()?->isSuperAdmin() ?? false),
+            ])
+            ->defaultSort('name');
+    }
+
+    private static function canManageAccount(User $record): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->hasRole('Admin Unit')) {
+            return $record->unit_id === $user->unit_id;
+        }
+
+        return false;
     }
 
     public static function getRelations(): array
@@ -151,9 +237,26 @@ class UserResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]);
+            ])
+            ->where('is_active', true);
+
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->isSuperAdmin()) {
+            return $query;
+        }
+
+        if ($user->hasRole('Admin Unit')) {
+            return $query->where('unit_id', $user->unit_id);
+        }
+
+        return $query;
     }
 }

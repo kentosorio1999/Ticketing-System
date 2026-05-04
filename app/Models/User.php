@@ -6,6 +6,7 @@ use Althinect\FilamentSpatieRolesPermissions\Concerns\HasSuperAdmin;
 use DutchCodingCompany\FilamentSocialite\Models\SocialiteUser;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
+use Filament\Panel;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -71,59 +72,40 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             : null;
     }
 
-    /**
-     * Get the user's preferred locale.
-     */
     public function preferredLocale(): string
     {
         return app(\App\Settings\GeneralSettings::class)->site_locale;
     }
 
-    /**
-     * Get the unit that owns the User.
-     */
     public function unit()
     {
         return $this->belongsTo(Unit::class);
     }
 
-    /**
-     * Get all of the comments for the User.
-     */
     public function comments()
     {
         return $this->hasMany(Comment::class);
     }
 
-    /**
-     * Get all of the tickets for the User.
-     */
     public function tickets()
     {
         return $this->hasMany(Ticket::class, 'owner_id');
     }
 
-    /**
-     * Get all of the ticket responsibility for the User.
-     */
     public function ticektResponsibility()
     {
         return $this->hasMany(Ticket::class, 'responsible_id');
     }
 
     /**
-     * Determine who has access.
-     *
-     * Only active users can access the filament.
+     * Allow all registered users to access the panel.
+     * Pending users will only see the Pending Approval dashboard.
      */
-    public function canAccessPanel(\Filament\Panel $panel): bool
+    public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_active;
+        return true;
     }
 
-    /**
-     * Add scope to display users based on their role.
-     */
     public function scopeByRole($query)
     {
         if (auth()->user()?->hasRole('Admin Unit')) {
@@ -133,9 +115,6 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         return $query;
     }
 
-    /**
-     * Get all of the socialiteUsers for the User.
-     */
     public function socialiteUsers()
     {
         return $this->hasMany(SocialiteUser::class);
