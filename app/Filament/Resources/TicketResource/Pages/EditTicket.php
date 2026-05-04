@@ -34,7 +34,7 @@ class EditTicket extends EditRecord
         if ($ticket->wasChanged('ticket_statuses_id') && $ticket->owner) {
             Notification::make()
                 ->title('Ticket Status Updated')
-                ->body('Your ticket status has been updated to: ' . $ticket->ticketStatus?->name)
+                ->body('Your ticket status has been updated to: '.$ticket->ticketStatus?->name)
                 ->info()
                 ->actions([
                     NotificationAction::make('view_ticket')
@@ -52,7 +52,7 @@ class EditTicket extends EditRecord
         if ($ticket->wasChanged('responsible_id') && $ticket->responsible) {
             Notification::make()
                 ->title('New Ticket Assigned')
-                ->body('A ticket has been assigned to you: ' . $ticket->title)
+                ->body('A ticket has been assigned to you: '.$ticket->title)
                 ->success()
                 ->actions([
                     NotificationAction::make('view_ticket')
@@ -71,7 +71,7 @@ class EditTicket extends EditRecord
         if (! $ticket->wasChanged('responsible_id') && $ticket->responsible) {
             Notification::make()
                 ->title('Assigned Ticket Updated')
-                ->body('A ticket assigned to you has been updated: ' . $ticket->title)
+                ->body('A ticket assigned to you has been updated: '.$ticket->title)
                 ->info()
                 ->actions([
                     NotificationAction::make('view_ticket')
@@ -95,7 +95,7 @@ class EditTicket extends EditRecord
 
             Notification::make()
                 ->title('Ticket Updated')
-                ->body('A ticket has been updated: ' . $ticket->title)
+                ->body('A ticket has been updated: '.$ticket->title)
                 ->info()
                 ->actions([
                     NotificationAction::make('view_ticket')
@@ -121,7 +121,7 @@ class EditTicket extends EditRecord
 
             Notification::make()
                 ->title('Unit Ticket Updated')
-                ->body('A ticket in your unit has been updated: ' . $ticket->title)
+                ->body('A ticket in your unit has been updated: '.$ticket->title)
                 ->info()
                 ->actions([
                     NotificationAction::make('view_ticket')

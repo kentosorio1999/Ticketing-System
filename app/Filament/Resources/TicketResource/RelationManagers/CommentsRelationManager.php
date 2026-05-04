@@ -64,7 +64,7 @@ class CommentsRelationManager extends RelationManager
 
                     Forms\Components\FileUpload::make('attachments')
                         ->translateLabel()
-                        ->directory('comment-attachments/' . date('m-y'))
+                        ->directory('comment-attachments/'.date('m-y'))
                         ->maxSize(2000)
                         ->downloadable(),
                 ]),
@@ -137,7 +137,7 @@ class CommentsRelationManager extends RelationManager
 
                         Notification::make()
                             ->title('New Ticket Comment')
-                            ->body('A new comment was added to your ticket: ' . $commentPreview)
+                            ->body('A new comment was added to your ticket: '.$commentPreview)
                             ->info()
                             ->actions([
                                 NotificationAction::make('view_ticket')
@@ -153,7 +153,7 @@ class CommentsRelationManager extends RelationManager
                 Tables\Actions\Action::make('attachment')
                     ->translateLabel()
                     ->action(function ($record) {
-                        return response()->download('storage/' . $record->attachments);
+                        return response()->download('storage/'.$record->attachments);
                     })
                     ->hidden(fn ($record) => $record->attachments == ''),
 

@@ -32,7 +32,7 @@ class UserObserver
         foreach ($superAdmins as $superAdmin) {
             Notification::make()
                 ->title('New Account Approval Request')
-                ->body($user->name . ' created an account and is waiting for approval.')
+                ->body($user->name.' created an account and is waiting for approval.')
                 ->warning()
                 ->actions([
                     Action::make('review_user')
@@ -53,7 +53,7 @@ class UserObserver
             foreach ($adminUnits as $adminUnit) {
                 Notification::make()
                     ->title('New Unit Account Approval Request')
-                    ->body($user->name . ' created an account in your unit and is waiting for approval.')
+                    ->body($user->name.' created an account in your unit and is waiting for approval.')
                     ->warning()
                     ->actions([
                         Action::make('review_user')

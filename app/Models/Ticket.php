@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Settings\AccountSettings;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\LogOptions;
@@ -96,7 +98,7 @@ class Ticket extends Model
     /**
      * Get the priority that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function priority()
     {
@@ -106,7 +108,7 @@ class Ticket extends Model
     /**
      * Get the unit that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function unit()
     {
@@ -116,7 +118,7 @@ class Ticket extends Model
     /**
      * Get the owner that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function owner()
     {
@@ -126,7 +128,7 @@ class Ticket extends Model
     /**
      * Get the responsible that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function responsible()
     {
@@ -136,7 +138,7 @@ class Ticket extends Model
     /**
      * Get the Category that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function category()
     {
@@ -146,7 +148,7 @@ class Ticket extends Model
     /**
      * Get the ticketStatus that owns the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function ticketStatus()
     {
@@ -156,7 +158,7 @@ class Ticket extends Model
     /**
      * Get all of the comments for the Ticket.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     * @return HasMany
      */
     public function comments()
     {

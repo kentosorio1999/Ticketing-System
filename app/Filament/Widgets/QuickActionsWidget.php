@@ -13,7 +13,7 @@ class QuickActionsWidget extends Widget
 
     protected static ?int $sort = 1;
 
-    protected int | string | array $columnSpan = 1;
+    protected int|string|array $columnSpan = 1;
 
     /**
      * Hide this widget from pending users.

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Althinect\FilamentSpatieRolesPermissions\Concerns\HasSuperAdmin;
+use App\Settings\GeneralSettings;
 use DutchCodingCompany\FilamentSocialite\Models\SocialiteUser;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -17,7 +18,7 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, HasLocalePreference, HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocalePreference
 {
     use HasFactory;
     use HasRoles;
@@ -74,7 +75,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     public function preferredLocale(): string
     {
-        return app(\App\Settings\GeneralSettings::class)->site_locale;
+        return app(GeneralSettings::class)->site_locale;
     }
 
     public function unit()

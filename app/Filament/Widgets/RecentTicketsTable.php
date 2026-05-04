@@ -13,7 +13,7 @@ class RecentTicketsTable extends BaseWidget
 {
     protected static ?int $sort = 4;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     protected function getTableHeading(): string
     {
@@ -90,7 +90,7 @@ class RecentTicketsTable extends BaseWidget
                 Tables\Columns\TextColumn::make('priority.name')
                     ->label('Priority')
                     ->badge()
-                    ->color(fn (string | null $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'Low' => 'gray',
                         'Normal' => 'info',
                         'Medium' => 'warning',
@@ -102,7 +102,7 @@ class RecentTicketsTable extends BaseWidget
                 Tables\Columns\TextColumn::make('ticketStatus.name')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string | null $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'New' => 'info',
                         'Open' => 'success',
                         'In Progress' => 'warning',

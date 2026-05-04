@@ -11,7 +11,7 @@ class DashboardStatsOverview extends BaseWidget
 {
     protected static ?int $sort = 3;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     /**
      * Hide ticket stats from pending users.

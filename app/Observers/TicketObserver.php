@@ -46,7 +46,7 @@ class TicketObserver
             $staffUsers->pull($authUser->id);
         }
 
-        $staffUsers->each(fn($user) => $user->notify(new TicketCreated($ticket)));
+        $staffUsers->each(fn ($user) => $user->notify(new TicketCreated($ticket)));
     }
 
     /**
@@ -71,7 +71,7 @@ class TicketObserver
                 $subscribers->pull($authUser->id);
             }
 
-            $subscribers->each(fn($subscriber) => $subscriber->notify(new TicketStatusUpdated($ticket)));
+            $subscribers->each(fn ($subscriber) => $subscriber->notify(new TicketStatusUpdated($ticket)));
         }
     }
 

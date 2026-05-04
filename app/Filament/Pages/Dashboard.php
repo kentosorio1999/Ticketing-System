@@ -51,7 +51,7 @@ class Dashboard extends BaseDashboard
         return Filament::getWidgets();
     }
 
-    public function getColumns(): int | string | array
+    public function getColumns(): int|string|array
     {
         if ($this->isPendingNormalUser()) {
             return 1;

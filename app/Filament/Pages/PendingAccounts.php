@@ -117,7 +117,7 @@ class PendingAccounts extends Page implements HasTable
 
                         Notification::make()
                             ->title('Account Approved')
-                            ->body($record->name . ' has been moved to Users.')
+                            ->body($record->name.' has been moved to Users.')
                             ->success()
                             ->send();
                     }),
@@ -136,7 +136,7 @@ class PendingAccounts extends Page implements HasTable
 
                         Notification::make()
                             ->title('Account Declined')
-                            ->body($name . ' has been removed from pending accounts.')
+                            ->body($name.' has been removed from pending accounts.')
                             ->danger()
                             ->send();
                     }),

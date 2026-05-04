@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Settings\AccountSettings;
+use App\Settings\GeneralSettings;
+use App\Settings\MailSettings;
 use Illuminate\Support\ServiceProvider;
 
 class ConfigServiceProvider extends ServiceProvider
@@ -26,7 +29,7 @@ class ConfigServiceProvider extends ServiceProvider
 
     protected function configGeneral()
     {
-        $generalSettings = app(\App\Settings\GeneralSettings::class);
+        $generalSettings = app(GeneralSettings::class);
 
         if ($generalSettings->site_title) {
             config(['app.name' => $generalSettings->site_title]);
@@ -47,7 +50,7 @@ class ConfigServiceProvider extends ServiceProvider
 
     protected function configAccount()
     {
-        $accountSettings = app(\App\Settings\AccountSettings::class);
+        $accountSettings = app(AccountSettings::class);
 
         if ($accountSettings->auth_google_enabled) {
             config(['services.google' => [
@@ -81,7 +84,7 @@ class ConfigServiceProvider extends ServiceProvider
 
     protected function configMail()
     {
-        $mailSettings = app(\App\Settings\MailSettings::class);
+        $mailSettings = app(MailSettings::class);
 
         if ($mailSettings->from_address) {
             config(['mail.from.address' => $mailSettings->from_address]);

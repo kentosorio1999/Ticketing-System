@@ -34,7 +34,7 @@ class CreateTicket extends CreateRecord
 
         foreach ($superAdmins as $superAdmin) {
             Notification::make()
-                ->title('New Ticket Created #' . $this->record->id)
+                ->title('New Ticket Created #'.$this->record->id)
                 ->body('A new ticket has been created. Click View Tickets below.')
                 ->success()
                 ->actions([
@@ -54,7 +54,7 @@ class CreateTicket extends CreateRecord
 
         foreach ($adminUnits as $adminUnit) {
             Notification::make()
-                ->title('New Unit Ticket Created #' . $this->record->id)
+                ->title('New Unit Ticket Created #'.$this->record->id)
                 ->body('A new ticket has been created in your unit. Click View Tickets below.')
                 ->success()
                 ->actions([

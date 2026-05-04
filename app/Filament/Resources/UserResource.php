@@ -173,7 +173,7 @@ class UserResource extends Resource
 
                         Notification::make()
                             ->title('Account Deactivated')
-                            ->body($record->name . ' has been moved to Pending Accounts.')
+                            ->body($record->name.' has been moved to Pending Accounts.')
                             ->danger()
                             ->send();
                     }),

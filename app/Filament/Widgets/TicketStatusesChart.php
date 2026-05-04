@@ -17,7 +17,7 @@ class TicketStatusesChart extends ApexChartWidget
      */
     protected static ?string $heading = 'Tickets';
 
-    protected int | string | array $columnSpan = 1;
+    protected int|string|array $columnSpan = 1;
 
     protected static ?int $sort = 2;
 

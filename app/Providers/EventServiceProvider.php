@@ -6,11 +6,16 @@ use App\Models\Comment;
 use App\Models\Ticket;
 use App\Observers\CommentObserver;
 use App\Observers\TicketObserver;
+use App\Support\Notifications\ShouldBeDebounce;
+use DutchCodingCompany\FilamentSocialite\Events\Login;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use SocialiteProviders\Auth0\Provider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class EventServiceProvider extends ServiceProvider
 {
@@ -33,22 +38,22 @@ class EventServiceProvider extends ServiceProvider
         Ticket::observe(TicketObserver::class);
         Comment::observe(CommentObserver::class);
 
-        Event::listen(function (\Illuminate\Notifications\Events\NotificationSent $event) {
-            if ($event->notification instanceof \App\Support\Notifications\ShouldBeDebounce) {
+        Event::listen(function (NotificationSent $event) {
+            if ($event->notification instanceof ShouldBeDebounce) {
                 Cache::lock($event->notification->getDebounceCacheKey($event->notifiable, $event->channel))
                     ->forceRelease();
             }
         });
 
-        Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
-            $event->extendSocialite('auth0', \SocialiteProviders\Auth0\Provider::class);
+        Event::listen(function (SocialiteWasCalled $event) {
+            $event->extendSocialite('auth0', Provider::class);
         });
 
-        Event::listen(function (\SocialiteProviders\Manager\SocialiteWasCalled $event) {
+        Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('laravelpassport', \SocialiteProviders\LaravelPassport\Provider::class);
         });
 
-        Event::listen(function (\DutchCodingCompany\FilamentSocialite\Events\Login $event) {
+        Event::listen(function (Login $event) {
             $event->socialiteUser->getUser()->update([
                 'name' => $event->oauthUser->getName(),
                 'email' => $event->oauthUser->getEmail(),

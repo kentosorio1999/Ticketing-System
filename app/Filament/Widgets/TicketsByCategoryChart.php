@@ -14,7 +14,7 @@ class TicketsByCategoryChart extends ApexChartWidget
 
     protected static ?int $sort = 5;
 
-    protected int | string | array $columnSpan = 1;
+    protected int|string|array $columnSpan = 1;
 
     public static function canView(): bool
     {

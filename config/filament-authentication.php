@@ -1,18 +1,26 @@
 <?php
 
+use App\Models\User;
+use Phpsa\FilamentAuthentication\Pages\Profile;
+use Phpsa\FilamentAuthentication\Resources\PermissionResource;
+use Phpsa\FilamentAuthentication\Resources\RoleResource;
+use Phpsa\FilamentAuthentication\Resources\UserResource;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+
 return [
     'models' => [
-        'User' => \App\Models\User::class,
-        'Role' => \Spatie\Permission\Models\Role::class,
-        'Permission' => \Spatie\Permission\Models\Permission::class,
+        'User' => User::class,
+        'Role' => Role::class,
+        'Permission' => Permission::class,
     ],
     'resources' => [
-        'UserResource' => \Phpsa\FilamentAuthentication\Resources\UserResource::class,
-        'RoleResource' => \Phpsa\FilamentAuthentication\Resources\RoleResource::class,
-        'PermissionResource' => \Phpsa\FilamentAuthentication\Resources\PermissionResource::class,
+        'UserResource' => UserResource::class,
+        'RoleResource' => RoleResource::class,
+        'PermissionResource' => PermissionResource::class,
     ],
     'pages' => [
-        'Profile' => \Phpsa\FilamentAuthentication\Pages\Profile::class,
+        'Profile' => Profile::class,
     ],
     'Widgets' => [
         'LatestUsers' => [

@@ -2,7 +2,14 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\TicketResource;
+use App\Filament\Widgets\DashboardStatsOverview;
+use App\Filament\Widgets\MonthlyTicketTrendChart;
+use App\Filament\Widgets\QuickActionsWidget;
+use App\Filament\Widgets\RecentTicketsTable;
+use App\Filament\Widgets\TicketsByCategoryChart;
+use App\Filament\Widgets\TicketStatusesChart;
 use App\Settings\AccountSettings;
 use App\Settings\GeneralSettings;
 use DutchCodingCompany\FilamentSocialite\FilamentSocialitePlugin;
@@ -122,16 +129,16 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                \App\Filament\Pages\Dashboard::class,
+                Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                \App\Filament\Widgets\QuickActionsWidget::class,
-                \App\Filament\Widgets\TicketStatusesChart::class,
-                \App\Filament\Widgets\DashboardStatsOverview::class,
-                \App\Filament\Widgets\MonthlyTicketTrendChart::class,
-                \App\Filament\Widgets\TicketsByCategoryChart::class,
-                \App\Filament\Widgets\RecentTicketsTable::class,
+                QuickActionsWidget::class,
+                TicketStatusesChart::class,
+                DashboardStatsOverview::class,
+                MonthlyTicketTrendChart::class,
+                TicketsByCategoryChart::class,
+                RecentTicketsTable::class,
             ])
             ->databaseNotifications()
             ->middleware([
@@ -154,8 +161,8 @@ class AdminPanelProvider extends PanelProvider
 
             $panel->brandLogo(new HtmlString('
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="' . $logoUrl . '" style="height: 3rem;">
-                    <span style="font-size: 20px; font-weight: 700; color: #111;">' . e($generalSettings->site_title) . '</span>
+                    <img src="'.$logoUrl.'" style="height: 3rem;">
+                    <span style="font-size: 20px; font-weight: 700; color: #111;">'.e($generalSettings->site_title).'</span>
                 </div>
             '));
         }
