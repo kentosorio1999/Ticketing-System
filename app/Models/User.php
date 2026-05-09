@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Althinect\FilamentSpatieRolesPermissions\Concerns\HasSuperAdmin;
+use App\Notifications\SendEmailVerificationCode;
 use App\Settings\GeneralSettings;
 use DutchCodingCompany\FilamentSocialite\Models\SocialiteUser;
 use Filament\Models\Contracts\FilamentUser;
@@ -29,8 +30,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocale
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'email_verification_code_expires_at' => 'datetime',
         'two_factor_confirmed_at' => 'datetime',
-        'is_active' => 'bool',
+        'birthdate' => 'date',
+        'is_active' => 'boolean',
     ];
 
     protected $hidden = [
@@ -41,14 +44,24 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocale
 
     protected $fillable = [
         'unit_id',
+
+        'first_name',
+        'middle_name',
+        'last_name',
+        'birthdate',
+
         'name',
         'email',
         'email_verified_at',
+        'email_verification_code',
+        'email_verification_code_expires_at',
+
         'password',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
         'remember_token',
+
         'identity',
         'phone',
         'avatar_url',
@@ -56,12 +69,26 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocale
         'is_active',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            if (! $user->email_verified_at) {
+                $code = (string) random_int(100000, 999999);
+
+                $user->forceFill([
+                    'email_verification_code' => $code,
+                    'email_verification_code_expires_at' => now()->addMinutes(10),
+                ])->saveQuietly();
+
+                $user->notify(new SendEmailVerificationCode($code));
+            }
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly([
-                '*',
-            ])
+            ->logOnly(['*'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }
@@ -93,9 +120,15 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasLocale
         return $this->hasMany(Ticket::class, 'owner_id');
     }
 
-    public function ticektResponsibility()
+    public function ticketResponsibility()
     {
         return $this->hasMany(Ticket::class, 'responsible_id');
+    }
+
+    // Keep this old misspelled method in case other parts of your system still use it.
+    public function ticektResponsibility()
+    {
+        return $this->ticketResponsibility();
     }
 
     /**

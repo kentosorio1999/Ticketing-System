@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PendingUserResource\Pages;
 
 use App\Filament\Resources\PendingUserResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListPendingUsers extends ListRecords
@@ -12,8 +11,6 @@ class ListPendingUsers extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\CreateAction::make(),
-        ];
+        return [];
     }
 }

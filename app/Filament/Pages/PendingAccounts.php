@@ -10,6 +10,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\Permission\Models\Role;
 
 class PendingAccounts extends Page implements HasTable
 {
@@ -24,6 +25,8 @@ class PendingAccounts extends Page implements HasTable
     protected static ?string $navigationGroup = 'Administration';
 
     protected static ?int $navigationSort = 3;
+
+    protected static ?string $slug = 'pending-accounts';
 
     protected static string $view = 'filament.pages.pending-accounts';
 
@@ -40,6 +43,30 @@ class PendingAccounts extends Page implements HasTable
     public static function shouldRegisterNavigation(): bool
     {
         return static::canAccess();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = User::query()
+            ->where('is_active', false)
+            ->whereDoesntHave('roles', function (Builder $query) {
+                $query->whereIn('name', [
+                    'Super Admin',
+                    'super_admin',
+                    'Admin',
+                    'admin',
+                    'Admin Unit',
+                    'Staff Unit',
+                ]);
+            })
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public function table(Table $table): Table
@@ -65,12 +92,16 @@ class PendingAccounts extends Page implements HasTable
 
                 Tables\Columns\TextColumn::make('unit.name')
                     ->label('Unit')
-                    ->placeholder('No unit')
+                    ->placeholder('Not Assigned')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('roles.name')
+                Tables\Columns\TextColumn::make('role')
                     ->label('Role')
-                    ->badge(),
+                    ->badge()
+                    ->getStateUsing(function (User $record): string {
+                        return $record->roles->pluck('name')->first() ?? 'User';
+                    })
+                    ->color('gray'),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Registered')
@@ -103,11 +134,20 @@ class PendingAccounts extends Page implements HasTable
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Approve account request')
-                    ->modalDescription('This will approve the account and move it to Users.')
+                    ->modalDescription(fn (User $record): string => 'Are you sure you want to approve ' . $record->name . '?')
+                    ->modalSubmitActionLabel('Yes, approve')
                     ->action(function (User $record): void {
                         $record->update([
                             'is_active' => true,
                         ]);
+
+                        if (! $record->roles()->exists()) {
+                            $role = Role::where('name', 'User')->first();
+
+                            if ($role) {
+                                $record->assignRole($role);
+                            }
+                        }
 
                         Notification::make()
                             ->title('Account Approved')
@@ -117,27 +157,29 @@ class PendingAccounts extends Page implements HasTable
 
                         Notification::make()
                             ->title('Account Approved')
-                            ->body($record->name.' has been moved to Users.')
+                            ->body($record->name . ' has been moved to Users.')
                             ->success()
                             ->send();
                     }),
 
-                Tables\Actions\Action::make('decline')
-                    ->label('Decline')
-                    ->icon('heroicon-m-x-circle')
+                Tables\Actions\Action::make('delete')
+                    ->label('Delete')
+                    ->icon('heroicon-m-trash')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalHeading('Decline account request')
-                    ->modalDescription('This will remove the pending account. The user will not be able to access the system.')
+                    ->modalHeading('Delete pending account forever?')
+                    ->modalDescription(fn (User $record): string => 'This will permanently delete ' . $record->name . '. The user can register again using the same email.')
+                    ->modalSubmitActionLabel('Yes, delete forever')
                     ->action(function (User $record): void {
                         $name = $record->name;
 
-                        $record->delete();
+                        // Permanent delete, not soft delete.
+                        $record->forceDelete();
 
                         Notification::make()
-                            ->title('Account Declined')
-                            ->body($name.' has been removed from pending accounts.')
-                            ->danger()
+                            ->title('Pending Account Deleted')
+                            ->body($name . ' has been permanently deleted.')
+                            ->success()
                             ->send();
                     }),
             ])
@@ -151,7 +193,17 @@ class PendingAccounts extends Page implements HasTable
     {
         $query = User::query()
             ->with(['unit', 'roles'])
-            ->where('is_active', false);
+            ->where('is_active', false)
+            ->whereDoesntHave('roles', function (Builder $query) {
+                $query->whereIn('name', [
+                    'Super Admin',
+                    'super_admin',
+                    'Admin',
+                    'admin',
+                    'Admin Unit',
+                    'Staff Unit',
+                ]);
+            });
 
         $user = auth()->user();
 

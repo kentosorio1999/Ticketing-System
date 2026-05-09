@@ -11,7 +11,8 @@ class UserObserver
 {
     public function creating(User $user): void
     {
-        // New users are inactive by default unless explicitly set active.
+        // New registered users are inactive/pending by default.
+        // If Super Admin creates a user and sets is_active manually, it will not be changed.
         if ($user->is_active === null) {
             $user->is_active = false;
         }
@@ -26,13 +27,17 @@ class UserObserver
 
         $userUrl = UserResource::getUrl('edit', ['record' => $user]);
 
-        // Super Admin receives all new account approval requests.
+        /*
+        |--------------------------------------------------------------------------
+        | Notify Super Admins
+        |--------------------------------------------------------------------------
+        */
         $superAdmins = User::role('Super Admin')->get();
 
         foreach ($superAdmins as $superAdmin) {
             Notification::make()
                 ->title('New Account Approval Request')
-                ->body($user->name.' created an account and is waiting for approval.')
+                ->body($user->name . ' created an account and is waiting for approval.')
                 ->warning()
                 ->actions([
                     Action::make('review_user')
@@ -44,16 +49,21 @@ class UserObserver
                 ->sendToDatabase($superAdmin);
         }
 
-        // Admin Unit receives only users from their own unit.
+        /*
+        |--------------------------------------------------------------------------
+        | Notify Admins from the same unit
+        |--------------------------------------------------------------------------
+        | Use "Admin" here because your system role is Admin, not Admin Unit.
+        */
         if ($user->unit_id) {
-            $adminUnits = User::role('Admin Unit')
+            $admins = User::role('Admin')
                 ->where('unit_id', $user->unit_id)
                 ->get();
 
-            foreach ($adminUnits as $adminUnit) {
+            foreach ($admins as $admin) {
                 Notification::make()
                     ->title('New Unit Account Approval Request')
-                    ->body($user->name.' created an account in your unit and is waiting for approval.')
+                    ->body($user->name . ' created an account in your unit and is waiting for approval.')
                     ->warning()
                     ->actions([
                         Action::make('review_user')
@@ -62,7 +72,7 @@ class UserObserver
                             ->url($userUrl)
                             ->markAsRead(),
                     ])
-                    ->sendToDatabase($adminUnit);
+                    ->sendToDatabase($admin);
             }
         }
     }

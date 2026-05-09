@@ -12,6 +12,8 @@ use App\Filament\Widgets\TicketsByCategoryChart;
 use App\Filament\Widgets\TicketStatusesChart;
 use App\Settings\AccountSettings;
 use App\Settings\GeneralSettings;
+use App\Filament\Pages\Auth\Register;
+use App\Http\Middleware\EnsureUserIsActiveForAdminPanel;
 use DutchCodingCompany\FilamentSocialite\FilamentSocialitePlugin;
 use DutchCodingCompany\FilamentSocialite\Provider;
 use Filament\Http\Middleware\Authenticate;
@@ -22,6 +24,7 @@ use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
+use App\Filament\Pages\Auth\Login;
 use Filament\Support\Colors\Color;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -30,6 +33,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Storage;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Joaopaulolndev\FilamentEditProfile\FilamentEditProfilePlugin;
@@ -49,8 +53,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
-            ->registration()
+            ->login(Login::class)
             ->colors([
                 'primary' => [
                     50 => '#eff6ff',
@@ -130,6 +133,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 Dashboard::class,
+                \App\Filament\Pages\PendingAccounts::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
@@ -140,21 +144,39 @@ class AdminPanelProvider extends PanelProvider
                 TicketsByCategoryChart::class,
                 RecentTicketsTable::class,
             ])
-            ->databaseNotifications()
-            ->middleware([
-                EncryptCookies::class,
-                AddQueuedCookiesToResponse::class,
-                StartSession::class,
-                AuthenticateSession::class,
-                ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
-                SubstituteBindings::class,
-                DisableBladeIconComponents::class,
-                DispatchServingFilamentEvent::class,
-            ])
-            ->authMiddleware([
-                Authenticate::class,
-            ]);
+         ->databaseNotifications()
+->renderHook(
+    PanelsRenderHook::BODY_END,
+    fn (): HtmlString => new HtmlString(<<<'HTML'
+<script>
+    document.addEventListener('livewire:init', () => {
+        Livewire.hook('request', ({ fail }) => {
+            fail(({ status, preventDefault }) => {
+                if (status === 419) {
+                    preventDefault();
+                    window.location.href = '/admin/login?expired=1';
+                }
+            });
+        });
+    });
+</script>
+HTML)
+)
+->middleware([
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+    AuthenticateSession::class,
+    ShareErrorsFromSession::class,
+    VerifyCsrfToken::class,
+    SubstituteBindings::class,
+    DisableBladeIconComponents::class,
+    DispatchServingFilamentEvent::class,
+])
+->authMiddleware([
+    Authenticate::class,
+    EnsureUserIsActiveForAdminPanel::class
+]);
 
         if ($generalSettings->site_logo_image) {
             $logoUrl = Storage::disk('public')->url($generalSettings->site_logo_image);
@@ -172,7 +194,7 @@ class AdminPanelProvider extends PanelProvider
         }
 
         if ($accountSettings->user_registration) {
-            $panel->registration();
+            $panel->registration(Register::class);
         }
 
         if ($accountSettings->user_email_verification) {
